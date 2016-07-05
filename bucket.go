@@ -15,7 +15,7 @@ type MaceBucket struct {
 	sync.RWMutex
 	name         string
 	items        map[string]*MaceItem
-	leakqueue    *LeakQueue
+	leakqueue    *leakQueue
 	leakTimer    *time.Timer
 	leakInterval time.Duration
 	logger       *log.Logger
@@ -64,15 +64,15 @@ func (bucket *MaceBucket) leakCheck() {
 	} else {
 		bucket.log("Expiration check installed on bucket", bucket.name)
 	}
-	invalidL := []*DisposeItem{}
+	invalidL := []*disposeItem{}
 	cur := time.Now()
 	l := bucket.leakqueue
 	for {
 		if l.Len() > 0 {
-			if it := heap.Pop(l); cur.Sub(it.(*DisposeItem).disposeTime) >= 0 {
-				invalidL = append(invalidL, it.(*DisposeItem))
+			if it := heap.Pop(l); cur.Sub(it.(*disposeItem).disposeTime) >= 0 {
+				invalidL = append(invalidL, it.(*disposeItem))
 			} else {
-				heap.Push(l, (it.(*DisposeItem)))
+				heap.Push(l, (it.(*disposeItem)))
 				break
 			}
 			break
@@ -93,7 +93,7 @@ func (bucket *MaceBucket) leakCheck() {
 	}
 	bucket.Lock()
 	if bucket.leakqueue.Len() > 0 {
-		itemMin := heap.Pop(bucket.leakqueue).(*DisposeItem)
+		itemMin := heap.Pop(bucket.leakqueue).(*disposeItem)
 		dur := itemMin.disposeTime
 		bucket.leakInterval = dur.Sub(cur)
 		bucket.leakTimer = time.AfterFunc(bucket.leakInterval, func() {
@@ -138,7 +138,7 @@ func (bucket *MaceBucket) Cache(key string, alive time.Duration,
 	if alive != 0 {
 		cur := time.Now()
 		disposeTime := cur.Add(alive)
-		ditem := &DisposeItem{
+		ditem := &disposeItem{
 			value:       key,
 			disposeTime: disposeTime,
 		}
@@ -179,7 +179,7 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 		// set
 		if v.Alive() != 0 {
 			disposeTime := v.Access().Add(v.Alive())
-			item := DisposeItem{
+			item := disposeItem{
 				value:       key,
 				disposeTime: disposeTime,
 			}
@@ -206,7 +206,7 @@ func (bucket *MaceBucket) Flush() {
 	defer bucket.Unlock()
 	bucket.log("Flushing the cache bucket: " + bucket.name)
 	bucket.items = make(map[string]*MaceItem)
-	l := LeakQueue{}
+	l := leakQueue{}
 	heap.Init(&l)
 	bucket.leakqueue = &l
 	bucket.leakInterval = 0

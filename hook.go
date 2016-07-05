@@ -19,7 +19,7 @@ func Mace(bucket_name string) *MaceBucket {
 	mutex.RLock()
 	b, ok := mace[bucket_name]
 	mutex.RUnlock()
-	l := LeakQueue{}
+	l := leakQueue{}
 	heap.Init(&l)
 	if !ok {
 		b = &MaceBucket{
