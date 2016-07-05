@@ -5,7 +5,7 @@
 package mace
 
 import (
-	"fmt"
+	"container/heap"
 	"log"
 	"sync"
 	"time"
@@ -15,7 +15,7 @@ type MaceBucket struct {
 	sync.RWMutex
 	name         string
 	items        map[string]*MaceItem
-	leakqueue    LeakQueue
+	leakqueue    *LeakQueue
 	leakTimer    *time.Timer
 	leakInterval time.Duration
 	logger       *log.Logger
@@ -60,53 +60,54 @@ func (bucket *MaceBucket) leakCheck() {
 		bucket.leakTimer.Stop()
 	}
 	if bucket.leakInterval > 0 {
-		bucket.log("Expiration check triggered after" + bucket.leakInterval.String() + "for bucket" + bucket.name)
+		bucket.log("Expiration check triggered after " + bucket.leakInterval.String() + " for bucket" + bucket.name)
 	} else {
 		bucket.log("Expiration check installed on bucket", bucket.name)
 	}
-	items := bucket.items
-	fmt.Printf("%v", bucket.leakqueue)
+	invalidL := []*DisposeItem{}
+	cur := time.Now()
+	l := bucket.leakqueue
+	for {
+		if l.Len() > 0 {
+			if it := heap.Pop(l); cur.Sub(it.(*DisposeItem).disposeTime) >= 0 {
+				invalidL = append(invalidL, it.(*DisposeItem))
+			} else {
+				heap.Push(l, (it.(*DisposeItem)))
+				break
+			}
+			break
+
+		}
+	}
 	bucket.Unlock()
 
 	// fetch current time for comparison
-	cur := time.Now()
 	// used to create next timer callback
 
-	smallestAlive := 0 * time.Second
 	// Change this to Heap so that cleaning is after
 	// at expense of more space usage
 	// Per item timestamp + pointer to item
-	for key, item := range items {
-		item.RLock()
-		alive := item.Alive()
-		access := item.Access()
-		item.RUnlock()
-
-		if alive == 0 {
-			continue
-		}
-		if cur.Sub(access) >= alive {
-			bucket.Delete(key)
-		} else {
-			if smallestAlive == 0 || alive < smallestAlive {
-				smallestAlive = alive - cur.Sub(access)
-			}
-		}
-		bucket.log("Smallest alive " + smallestAlive.String())
+	for _, itemP := range invalidL {
+		key := itemP.value
+		bucket.Delete(key)
 	}
 	bucket.Lock()
-	bucket.leakInterval = smallestAlive
-	if smallestAlive > 0 {
-		bucket.leakTimer = time.AfterFunc(smallestAlive, func() {
+	if bucket.leakqueue.Len() > 0 {
+		itemMin := heap.Pop(bucket.leakqueue).(*DisposeItem)
+		dur := itemMin.disposeTime
+		bucket.leakInterval = dur.Sub(cur)
+		bucket.leakTimer = time.AfterFunc(bucket.leakInterval, func() {
 			go bucket.leakCheck()
 		})
+		heap.Push(bucket.leakqueue, itemMin)
 	}
 	bucket.Unlock()
-	return
+
 }
 
 func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	bucket.Lock()
+
 	v, ok := bucket.items[key]
 	if !ok {
 		bucket.Unlock()
@@ -130,19 +131,20 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 func (bucket *MaceBucket) Cache(key string, alive time.Duration,
 	data interface{}) *MaceItem {
 	item := NewMaceItem(key, data, alive)
-
 	bucket.Lock()
 	bucket.log("Adding item with key: " + key +
 		" which will be alive for:" + alive.String())
 	bucket.items[key] = item
 	if alive != 0 {
-		disposeTime := alive
-		ditem := DisposeItem{
+		cur := time.Now()
+		disposeTime := cur.Add(alive)
+		ditem := &DisposeItem{
 			value:       key,
 			disposeTime: disposeTime,
 		}
-		bucket.leakqueue.Push(ditem)
+		heap.Push(bucket.leakqueue, ditem)
 	}
+
 	expiry := bucket.leakInterval
 	addCallback := bucket.onAddItem
 	bucket.Unlock()
@@ -155,6 +157,7 @@ func (bucket *MaceBucket) Cache(key string, alive time.Duration,
 	if alive > 0 && (expiry == 0 || alive < expiry) {
 		bucket.leakCheck()
 	}
+
 	return item
 }
 
@@ -174,16 +177,15 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 		v.KeepAlive()
 		// We care to update LeakQueue only if it has Alive duration
 		// set
-		cur := time.Now()
 		if v.Alive() != 0 {
-			disposeTime := v.Alive() - cur.Sub(v.Access())
-			item := &DisposeItem{
+			disposeTime := v.Access().Add(v.Alive())
+			item := DisposeItem{
 				value:       key,
 				disposeTime: disposeTime,
 			}
 
 			bucket.Lock()
-			bucket.leakqueue.Update(item, key, disposeTime)
+			heap.Push(bucket.leakqueue, &item)
 			bucket.Unlock()
 		}
 		return v, nil
@@ -204,7 +206,9 @@ func (bucket *MaceBucket) Flush() {
 	defer bucket.Unlock()
 	bucket.log("Flushing the cache bucket: " + bucket.name)
 	bucket.items = make(map[string]*MaceItem)
-	bucket.leakqueue = LeakQueue{}
+	l := LeakQueue{}
+	heap.Init(&l)
+	bucket.leakqueue = &l
 	bucket.leakInterval = 0
 	if bucket.leakTimer != nil {
 		bucket.leakTimer.Stop()
