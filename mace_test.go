@@ -209,22 +209,22 @@ func TestMaceCallbacks(t *testing.T) {
 
 func TestHeapQueue(t *testing.T) {
 	keys := "K"
-	l := LeakQueue{}
+	l := leakQueue{}
 	heap.Init(&l)
 	korder := []string{}
-	l1 := []*DisposeItem{}
+	l1 := []*disposeItem{}
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("%s_%d", keys, i)
 		cur := time.Now()
 		value := cur.Add(100 * time.Millisecond)
-		d := &DisposeItem{
+		d := &disposeItem{
 			disposeTime: value,
 			value:       key,
 		}
 		l1 = append(l1, d)
 		korder = append(korder, key)
 	}
-	l2 := make([]*DisposeItem, len(l1))
+	l2 := make([]*disposeItem, len(l1))
 	perm := rand.Perm(len(l1))
 	for i, v := range perm {
 		l2[v] = l1[i]
@@ -234,7 +234,7 @@ func TestHeapQueue(t *testing.T) {
 	}
 
 	for j := 0; j < 100; j++ {
-		item := heap.Pop(&l).(*DisposeItem)
+		item := heap.Pop(&l).(*disposeItem)
 		//fmt.Printf("%v\n", l)
 		if korder[j] != item.value {
 			t.Errorf("The heap order is incorrect for key %s %s", item.value, korder[j])
