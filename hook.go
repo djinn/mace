@@ -6,6 +6,7 @@
 package mace
 
 import (
+	"container/heap"
 	"sync"
 )
 
@@ -18,11 +19,13 @@ func Mace(bucket_name string) *MaceBucket {
 	mutex.RLock()
 	b, ok := mace[bucket_name]
 	mutex.RUnlock()
+	l := LeakQueue{}
+	heap.Init(&l)
 	if !ok {
 		b = &MaceBucket{
 			name:      bucket_name,
 			items:     make(map[string]*MaceItem),
-			leakqueue: LeakQueue{},
+			leakqueue: &l,
 		}
 		mutex.Lock()
 		mace[bucket_name] = b

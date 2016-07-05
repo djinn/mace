@@ -5,7 +5,10 @@
 package mace
 
 import (
+	"container/heap"
+	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"testing"
@@ -169,7 +172,7 @@ func TestMaceDataLoader(t *testing.T) {
 		t.Error("Error validating data loader for nil values")
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		key := k + strconv.Itoa(i)
 		vp := key
 		p, err = bucket.Value(key)
@@ -201,5 +204,40 @@ func TestMaceCallbacks(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	if removedKey != k {
 		t.Error("AboutToDeleteItem callback not working:" + k + "_" + removedKey)
+	}
+}
+
+func TestHeapQueue(t *testing.T) {
+	keys := "K"
+	l := LeakQueue{}
+	heap.Init(&l)
+	korder := []string{}
+	l1 := []*DisposeItem{}
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("%s_%d", keys, i)
+		cur := time.Now()
+		value := cur.Add(100 * time.Millisecond)
+		d := &DisposeItem{
+			disposeTime: value,
+			value:       key,
+		}
+		l1 = append(l1, d)
+		korder = append(korder, key)
+	}
+	l2 := make([]*DisposeItem, len(l1))
+	perm := rand.Perm(len(l1))
+	for i, v := range perm {
+		l2[v] = l1[i]
+	}
+	for _, d1 := range l2 {
+		heap.Push(&l, d1)
+	}
+
+	for j := 0; j < 100; j++ {
+		item := heap.Pop(&l).(*DisposeItem)
+		//fmt.Printf("%v\n", l)
+		if korder[j] != item.value {
+			t.Errorf("The heap order is incorrect for key %s %s", item.value, korder[j])
+		}
 	}
 }

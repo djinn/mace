@@ -6,14 +6,13 @@
 package mace
 
 import (
-	"container/heap"
 	"fmt"
 	"time"
 )
 
 type DisposeItem struct {
 	value       string
-	disposeTime time.Duration
+	disposeTime time.Time
 	index       int
 }
 
@@ -24,7 +23,10 @@ func (lq LeakQueue) Len() int {
 }
 
 func (lq LeakQueue) Less(i, j int) bool {
-	return lq[i].disposeTime < lq[j].disposeTime
+	if lq[i].disposeTime.Sub(lq[j].disposeTime) <= 0 {
+		return true
+	}
+	return false
 }
 
 func (lq LeakQueue) Swap(i, j int) {
@@ -32,16 +34,20 @@ func (lq LeakQueue) Swap(i, j int) {
 	return
 }
 
-func (lq *LeakQueue) Push(key interface{}) {
-	n := len(*lq)
-	item := key.(DisposeItem)
-	item.index = n
-	*lq = append(*lq, &item)
-	return
+func (lq LeakQueue) String() string {
+	var s string
+	for _, i := range lq {
+		s = s + fmt.Sprintf("Value: %s, disposeTime %s\n", i.value, i.disposeTime)
+	}
+	return s
 }
 
-func (lq *LeakQueue) String() string {
-	return fmt.Sprintf("Leakqueue len: %d", lq.Len())
+func (lq *LeakQueue) Push(key interface{}) {
+	n := len(*lq)
+	item := key.(*DisposeItem)
+	item.index = n
+	*lq = append(*lq, item)
+	return
 }
 
 func (lq *LeakQueue) Pop() interface{} {
@@ -51,10 +57,4 @@ func (lq *LeakQueue) Pop() interface{} {
 	item.index = -1 // for safety
 	*lq = old[0 : n-1]
 	return item
-}
-
-func (lq *LeakQueue) Update(item *DisposeItem, value string, disposeTime time.Duration) {
-	item.value = value
-	item.disposeTime = disposeTime
-	heap.Fix(lq, item.index)
 }
