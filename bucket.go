@@ -1,7 +1,3 @@
-// Simple cache library
-// Heavily inspired of github.com/rif/cache2go
-// Deviating on finer points
-// Copyright (c) 2016, Supreet Sethi <supreet.sethi@gmail.com>
 package mace
 
 import (
@@ -135,16 +131,9 @@ func (bucket *MaceBucket) Cache(key string, alive time.Duration,
 	bucket.log("Adding item with key: " + key +
 		" which will be alive for:" + alive.String())
 	bucket.items[key] = item
-	if alive != 0 {
-		cur := time.Now()
-		disposeTime := cur.Add(alive)
-		ditem := &disposeItem{
-			value:       key,
-			disposeTime: disposeTime,
-		}
-		heap.Push(bucket.leakqueue, ditem)
+	if item.alive != 0 {
+		heap.Push(bucket.leakqueue, item.dispose)
 	}
-
 	expiry := bucket.leakInterval
 	addCallback := bucket.onAddItem
 	bucket.Unlock()
@@ -178,14 +167,8 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 		// We care to update LeakQueue only if it has Alive duration
 		// set
 		if v.Alive() != 0 {
-			disposeTime := v.Access().Add(v.Alive())
-			item := disposeItem{
-				value:       key,
-				disposeTime: disposeTime,
-			}
-
 			bucket.Lock()
-			heap.Push(bucket.leakqueue, &item)
+			bucket.leakqueue.update(v.dispose)
 			bucket.Unlock()
 		}
 		return v, nil
