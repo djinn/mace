@@ -1,11 +1,7 @@
-// Simple cache library
-// Heavily inspired of github.com/rif/cache2go
-// Deviating on finer points
-// Copyright (c) 2016, Supreet Sethi <supreet.sethi@gmail.com>
-
 package mace
 
 import (
+	"container/heap"
 	"fmt"
 	"time"
 )
@@ -57,4 +53,8 @@ func (lq *leakQueue) Pop() interface{} {
 	item.index = -1 // for safety
 	*lq = old[0 : n-1]
 	return item
+}
+
+func (lq *leakQueue) update(item *disposeItem) {
+	heap.Fix(lq, item.index)
 }

@@ -1,7 +1,3 @@
-// Simple cache library
-// Heavily inspired of github.com/rif/cache2go
-// Deviating on finer points
-// Copyright (c) 2016, Supreet Sethi <supreet.sethi@gmail.com>
 package mace
 
 import (
@@ -17,19 +13,30 @@ type MaceItem struct {
 	created     time.Time
 	access      time.Time
 	accessCount int
+	dispose     *disposeItem
 	// Expire notification is trait of table structure
 	// Likely use case is item specific events are similar in nature
 }
 
 func NewMaceItem(key string, val interface{}, aliveUntil time.Duration) *MaceItem {
 	cur := time.Now()
-	return &MaceItem{
+	m := &MaceItem{
 		key:     key,
 		alive:   aliveUntil,
 		created: cur,
 		access:  cur,
 		data:    val,
 	}
+	if aliveUntil != 0 {
+		cur := time.Now()
+		disposeTime := cur.Add(aliveUntil)
+		ditem := &disposeItem{
+			value:       key,
+			disposeTime: disposeTime,
+		}
+		m.dispose = ditem
+	}
+	return m
 }
 
 func (item *MaceItem) KeepAlive() {
@@ -37,6 +44,9 @@ func (item *MaceItem) KeepAlive() {
 	defer item.Unlock()
 	item.access = time.Now()
 	item.accessCount++
+	if item.alive != 0 {
+		item.dispose.disposeTime = item.access.Add(item.alive)
+	}
 	return
 }
 
