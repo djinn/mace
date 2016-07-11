@@ -22,32 +22,33 @@ type MaceBucket struct {
 
 func (bucket *MaceBucket) Count() int {
 	bucket.RLock()
-	defer bucket.RUnlock()
-	return len(bucket.items)
+	r := len(bucket.items)
+	bucket.RUnlock()
+	return r
 }
 
 func (bucket *MaceBucket) SetDataLoader(f func(string) *MaceItem) {
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.loadItems = f
+	bucket.Unlock()
 }
 
 func (bucket *MaceBucket) SetOnAddItem(f func(*MaceItem)) {
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.onAddItem = f
+	bucket.Unlock()
 }
 
 func (bucket *MaceBucket) SetOnDeleteItem(f func(*MaceItem)) {
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.onDeleteItem = f
+	bucket.Unlock()
 }
 
 func (bucket *MaceBucket) SetLogger(logger *log.Logger) {
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.logger = logger
+	bucket.Unlock()
 }
 
 func (bucket *MaceBucket) leakCheck() {
@@ -72,7 +73,6 @@ func (bucket *MaceBucket) leakCheck() {
 				break
 			}
 			break
-
 		}
 	}
 	bucket.Unlock()
@@ -98,7 +98,6 @@ func (bucket *MaceBucket) leakCheck() {
 		heap.Push(bucket.leakqueue, itemMin)
 	}
 	bucket.Unlock()
-
 }
 
 func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
@@ -118,9 +117,9 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 		deleteCallback(v)
 	}
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.log("Deleting item with key: " + key + " created on " + v.Created().String())
 	delete(bucket.items, key)
+	bucket.Unlock()
 	return v, nil
 }
 
@@ -152,8 +151,8 @@ func (bucket *MaceBucket) Cache(key string, alive time.Duration,
 
 func (bucket *MaceBucket) Exists(key string) bool {
 	bucket.RLock()
-	defer bucket.RUnlock()
 	_, ok := bucket.items[key]
+	bucket.RUnlock()
 	return ok
 }
 
@@ -186,7 +185,6 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 
 func (bucket *MaceBucket) Flush() {
 	bucket.Lock()
-	defer bucket.Unlock()
 	bucket.log("Flushing the cache bucket: " + bucket.name)
 	bucket.items = make(map[string]*MaceItem)
 	l := leakQueue{}
@@ -196,6 +194,7 @@ func (bucket *MaceBucket) Flush() {
 	if bucket.leakTimer != nil {
 		bucket.leakTimer.Stop()
 	}
+	bucket.Unlock()
 	return
 }
 
