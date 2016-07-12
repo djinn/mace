@@ -27,6 +27,8 @@ func (lq leakQueue) Less(i, j int) bool {
 
 func (lq leakQueue) Swap(i, j int) {
 	lq[i], lq[j] = lq[j], lq[i]
+	lq[i].index = i
+	lq[j].index = j
 	return
 }
 
