@@ -85,7 +85,7 @@ func (bucket *MaceBucket) leakCheck() {
 	// Per item timestamp + pointer to item
 	for _, itemP := range invalidL {
 		key := itemP.value
-		bucket.Delete(key)
+		bucket.delete(key)
 	}
 	bucket.Lock()
 	if bucket.leakqueue.Len() > 0 {
@@ -98,6 +98,28 @@ func (bucket *MaceBucket) leakCheck() {
 		heap.Push(bucket.leakqueue, itemMin)
 	}
 	bucket.Unlock()
+}
+
+func (bucket *MaceBucket) delete(key string) (*MaceItem, error) {
+	bucket.Lock()
+
+	v, ok := bucket.items[key]
+	if !ok {
+		bucket.Unlock()
+		return nil, ErrKeyNotFound
+	}
+	deleteCallback := bucket.onDeleteItem
+	bucket.Unlock()
+	if deleteCallback != nil {
+		// TODO: clone item before calling this routine
+		// Secondary advantage is ablility to run this as separate
+		// go routine
+		deleteCallback(v)
+	}
+	bucket.Lock()
+	delete(bucket.items, key)
+	bucket.Unlock()
+	return v, nil
 }
 
 func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
@@ -118,6 +140,12 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	}
 	bucket.Lock()
 	bucket.log("Deleting item with key: " + key + " created on " + v.Created().String())
+	if v.Alive() != 0 {
+		dispose := v.dispose
+		if dispose != nil {
+			heap.Remove(bucket.leakqueue, dispose.index)
+		}
+	}
 	delete(bucket.items, key)
 	bucket.Unlock()
 	return v, nil
@@ -125,6 +153,10 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 
 func (bucket *MaceBucket) Set(key string, data interface{},
 	alive time.Duration) *MaceItem {
+	// If the key already exists
+	if bucket.Exists(key) {
+		bucket.Delete(key)
+	}
 	item := NewMaceItem(key, data, alive)
 	bucket.Lock()
 	bucket.log("Adding item with key: " + key +
@@ -145,7 +177,6 @@ func (bucket *MaceBucket) Set(key string, data interface{},
 	if alive > 0 && (expiry == 0 || alive < expiry) {
 		bucket.leakCheck()
 	}
-
 	return item
 }
 
@@ -185,6 +216,7 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 			bucket.Lock()
 			bucket.leakqueue.update(v.dispose)
 			bucket.Unlock()
+
 		}
 		return v, nil
 	}
