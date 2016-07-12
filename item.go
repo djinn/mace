@@ -41,12 +41,12 @@ func NewMaceItem(key string, val interface{}, aliveUntil time.Duration) *MaceIte
 
 func (item *MaceItem) KeepAlive() {
 	item.Lock()
-	defer item.Unlock()
 	item.access = time.Now()
 	item.accessCount++
 	if item.alive != 0 {
 		item.dispose.disposeTime = item.access.Add(item.alive)
 	}
+	item.Unlock()
 	return
 }
 
@@ -64,8 +64,9 @@ func (item *MaceItem) Data() interface{} {
 
 func (item *MaceItem) AccessCount() int {
 	item.RLock()
-	defer item.RUnlock()
-	return item.accessCount
+	r := item.accessCount
+	item.RUnlock()
+	return r
 }
 
 func (item *MaceItem) Created() time.Time {
@@ -74,6 +75,7 @@ func (item *MaceItem) Created() time.Time {
 
 func (item *MaceItem) Access() time.Time {
 	item.RLock()
-	defer item.RUnlock()
-	return item.access
+	r := item.access
+	item.RUnlock()
+	return r
 }
