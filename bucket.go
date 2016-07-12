@@ -123,8 +123,8 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	return v, nil
 }
 
-func (bucket *MaceBucket) Cache(key string, alive time.Duration,
-	data interface{}) *MaceItem {
+func (bucket *MaceBucket) Set(key string, data interface{},
+	alive time.Duration) *MaceItem {
 	item := NewMaceItem(key, data, alive)
 	bucket.Lock()
 	bucket.log("Adding item with key: " + key +
@@ -156,6 +156,22 @@ func (bucket *MaceBucket) Exists(key string) bool {
 	return ok
 }
 
+func (bucket *MaceBucket) KeepAlive(key string) error {
+	bucket.Lock()
+	defer bucket.Unlock()
+	v, ok := bucket.items[key]
+	v.KeepAlive()
+	// We care to update LeakQueue only if it has Alive duration
+	// set
+	if ok {
+		if v.Alive() != 0 {
+			bucket.leakqueue.update(v.dispose)
+		}
+		return nil
+	}
+	return ErrKeyNotFound
+}
+
 func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 	bucket.RLock()
 	v, ok := bucket.items[key]
@@ -175,7 +191,7 @@ func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
 	if loadItems != nil {
 		item := loadItems(key)
 		if item != nil {
-			bucket.Cache(key, item.Alive(), item.data)
+			bucket.Set(key, item.data, item.Alive())
 			return item, nil
 		}
 		return nil, ErrKeyNotFoundOrLoadable

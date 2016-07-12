@@ -26,7 +26,10 @@ func BenchmarkRedis(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-
+		err = client.Del(key).Err()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }
@@ -36,6 +39,7 @@ func BenchmarkCache2Go(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
 		cache.Cache(key, 0*time.Second, &key)
+		cache.Delete(key)
 	}
 }
 
@@ -43,6 +47,7 @@ func BenchmarkMace(b *testing.B) {
 	cache := mace.Mace("bench")
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
-		cache.Cache(key, 0*time.Second, &key)
+		cache.Set(key, &key, 0*time.Millisecond)
+		cache.Delete(key)
 	}
 }
