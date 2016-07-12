@@ -32,7 +32,7 @@ func main() {
 	cache.Set("522013", &product, 5*time.Millisecond)
 
 	// Let's retrieve the item from the cache.
-	res, err := cache.Value("522013")
+	res, err := cache.Get("522013")
 	if err == nil {
 		fmt.Println("Found value in key:", res.Data().(*ProductType))
 	} else {
@@ -41,7 +41,7 @@ func main() {
 
 	// Wait for the item to expire in cache.
 	time.Sleep(6 * time.Second)
-	res, err = cache.Value("522013")
+	res, err = cache.Get("522013")
 	if err != nil {
 		fmt.Println("Item is not cached (anymore).")
 	}
