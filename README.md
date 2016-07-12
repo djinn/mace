@@ -1,4 +1,5 @@
 # [Mace](https://github.com/djinn/mace) is a fast caching library for [golang](https://github.com/golang/go)
+[![GoDoc](https://godoc.org/github.com/djinn/mace?status.svg)](https://godoc.org/github.com/djinn/mace)
 Mace easy caching mechanism which is sufficiently fast. Mace does not provide
 caching over application cluster. For that specific purpose please evaluate
 [groupcache](https://github.com/golang/groupcache).
