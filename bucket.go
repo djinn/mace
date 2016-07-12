@@ -146,6 +146,7 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	if v.Alive() != 0 {
 		dispose := v.dispose
 		if dispose != nil {
+			//fmt.Printf("deleting %d for index %d with %v\n", dispose.index, bucket.leakqueue.Len(), v)
 			heap.Remove(bucket.leakqueue, dispose.index)
 		}
 	}
