@@ -1,7 +1,3 @@
-// Simple cache library
-// Heavily inspired of github.com/rif/cache2go
-// Deviating on finer points
-// Copyright (c) 2016, Supreet Sethi <supreet.sethi@gmail.com>
 package mace
 
 import (
@@ -21,21 +17,21 @@ var (
 	logger = log.New(os.Stdout, "Mace:", log.LstdFlags)
 )
 
-func TestMaceCache(t *testing.T) {
+func TestMaceSet(t *testing.T) {
 	bucket := Mace("testMace")
-	bucket.Cache(k, 1*time.Second, v)
+	bucket.Set(k, v, 1*time.Second)
 	p, err := bucket.Value(k)
 	if err != nil || p == nil || p.Data().(string) != v {
-		t.Error("Error retrieving data from cache", err)
+		t.Error("Error retrieving data from Set", err)
 	}
 }
 
-func TestMaceCacheExpire(t *testing.T) {
+func TestMaceSetExpire(t *testing.T) {
 	bucket := Mace("testMaceExpire")
-	bucket.Cache(k, 250*time.Millisecond, v)
+	bucket.Set(k, v, 250*time.Millisecond)
 	p, err := bucket.Value(k)
 	if err != nil || p == nil || p.Data().(string) != v {
-		t.Error("Error retrieving data from cache", err)
+		t.Error("Error retrieving data from Set", err)
 	}
 	time.Sleep(500 * time.Millisecond)
 	p, err = bucket.Value(k)
@@ -45,29 +41,29 @@ func TestMaceCacheExpire(t *testing.T) {
 	}
 }
 
-func TestMaceCacheNonExpiring(t *testing.T) {
+func TestMaceSetNonExpiring(t *testing.T) {
 	bucket := Mace("testMaceNonExpiring")
-	bucket.Cache(k, 0, v)
+	bucket.Set(k, v, 0)
 	time.Sleep(500 * time.Millisecond)
 	p, err := bucket.Value(k)
 	if err != nil || p == nil || p.Data().(string) != v {
-		t.Error("Error retrieving data from cache", err)
+		t.Error("Error retrieving data from Set", err)
 	}
 }
 
-func TestMaceCacheKeepAlive(t *testing.T) {
+func TestMaceSetKeepAlive(t *testing.T) {
 	k2 := k + k
 	v2 := v + v
 	bucket := Mace("testMaceKeepAlive")
-	bucket.Cache(k, 250*time.Millisecond, v)
-	bucket.Cache(k2, 750*time.Millisecond, v2)
+	bucket.Set(k, v, 250*time.Millisecond)
+	bucket.Set(k2, v2, 750*time.Millisecond)
 
 	p, err := bucket.Value(k)
 	if err != nil || p == nil || p.Data().(string) != v {
-		t.Error("Error retrieving data from cache", err)
+		t.Error("Error retrieving data from Set", err)
 	}
 	time.Sleep(50 * time.Millisecond)
-	p.KeepAlive()
+	bucket.KeepAlive(k)
 
 	time.Sleep(450 * time.Millisecond)
 	p, err = bucket.Value(k)
@@ -87,18 +83,18 @@ func TestMaceCacheKeepAlive(t *testing.T) {
 
 func TestMaceExists(t *testing.T) {
 	bucket := Mace("testMaceExists")
-	bucket.Cache(k, 0, v)
+	bucket.Set(k, v, 0)
 	if !bucket.Exists(k) {
-		t.Error("Error verifying existing data in cache")
+		t.Error("Error verifying existing data in Set")
 	}
 }
 
 func TestMaceDelete(t *testing.T) {
 	bucket := Mace("testMaceDelete")
-	bucket.Cache(k, 0, v)
+	bucket.Set(k, v, 0)
 	p, err := bucket.Value(k)
 	if err != nil || p == nil || p.Data().(string) != v {
-		t.Error("Error retrieving data from cache", err)
+		t.Error("Error retrieving data from Set", err)
 	}
 	bucket.Delete(k)
 	p, err = bucket.Value(k)
@@ -109,7 +105,7 @@ func TestMaceDelete(t *testing.T) {
 
 func TestMaceFlush(t *testing.T) {
 	bucket := Mace("testMaceFlush")
-	bucket.Cache(k, 10*time.Second, v)
+	bucket.Set(k, v, 10*time.Second)
 	time.Sleep(100 * time.Millisecond)
 	bucket.Flush()
 
@@ -124,7 +120,7 @@ func TestMaceFlush(t *testing.T) {
 
 func TestMaceFlushNoTimout(t *testing.T) {
 	bucket := Mace("testMaceFlushNoTimeout")
-	bucket.Cache(k, 10*time.Second, v)
+	bucket.Set(k, v, 10*time.Second)
 	bucket.Flush()
 
 	p, err := bucket.Value(k)
@@ -141,7 +137,7 @@ func TestMaceCount(t *testing.T) {
 	bucket := Mace("testCount")
 	for i := 0; i < count; i++ {
 		key := k + strconv.Itoa(i)
-		bucket.Cache(key, 10*time.Second, v)
+		bucket.Set(key, v, 10*time.Second)
 	}
 	for i := 0; i < count; i++ {
 		key := k + strconv.Itoa(i)
@@ -194,7 +190,7 @@ func TestMaceCallbacks(t *testing.T) {
 		removedKey = item.Key()
 	})
 
-	bucket.Cache(k, 500*time.Millisecond, v)
+	bucket.Set(k, v, 500*time.Millisecond)
 
 	time.Sleep(250 * time.Millisecond)
 	if addedKey != k {

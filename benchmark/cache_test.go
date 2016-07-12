@@ -47,7 +47,7 @@ func BenchmarkMace(b *testing.B) {
 	cache := mace.Mace("bench")
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
-		cache.Cache(key, 0*time.Second, &key)
+		cache.Set(key, &key, 0*time.Millisecond)
 		cache.Delete(key)
 	}
 }
