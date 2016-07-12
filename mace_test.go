@@ -20,7 +20,7 @@ var (
 func TestMaceSet(t *testing.T) {
 	bucket := Mace("testMace")
 	bucket.Set(k, v, 1*time.Second)
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
 		t.Error("Error retrieving data from Set", err)
 	}
@@ -29,12 +29,12 @@ func TestMaceSet(t *testing.T) {
 func TestMaceSetExpire(t *testing.T) {
 	bucket := Mace("testMaceExpire")
 	bucket.Set(k, v, 250*time.Millisecond)
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
 		t.Error("Error retrieving data from Set", err)
 	}
 	time.Sleep(500 * time.Millisecond)
-	p, err = bucket.Value(k)
+	p, err = bucket.Get(k)
 	if err == nil || p != nil {
 		t.Errorf("%v %s\n", p, err)
 		t.Error("Error expiring data")
@@ -45,7 +45,7 @@ func TestMaceSetNonExpiring(t *testing.T) {
 	bucket := Mace("testMaceNonExpiring")
 	bucket.Set(k, v, 0)
 	time.Sleep(500 * time.Millisecond)
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
 		t.Error("Error retrieving data from Set", err)
 	}
@@ -58,7 +58,7 @@ func TestMaceSetKeepAlive(t *testing.T) {
 	bucket.Set(k, v, 250*time.Millisecond)
 	bucket.Set(k2, v2, 750*time.Millisecond)
 
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
 		t.Error("Error retrieving data from Set", err)
 	}
@@ -66,16 +66,16 @@ func TestMaceSetKeepAlive(t *testing.T) {
 	bucket.KeepAlive(k)
 
 	time.Sleep(450 * time.Millisecond)
-	p, err = bucket.Value(k)
+	p, err = bucket.Get(k)
 	if err == nil || p != nil {
 		t.Error("Error expiring data")
 	}
-	p, err = bucket.Value(k2)
+	p, err = bucket.Get(k2)
 	if err != nil || p == nil || p.Data().(string) != v2 {
 		t.Error("Error retrieving data from cache", err)
 	}
 	time.Sleep(1 * time.Second)
-	p, err = bucket.Value(k2)
+	p, err = bucket.Get(k2)
 	if err == nil || p != nil {
 		t.Error("Error expiring data")
 	}
@@ -92,12 +92,12 @@ func TestMaceExists(t *testing.T) {
 func TestMaceDelete(t *testing.T) {
 	bucket := Mace("testMaceDelete")
 	bucket.Set(k, v, 0)
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
 		t.Error("Error retrieving data from Set", err)
 	}
 	bucket.Delete(k)
-	p, err = bucket.Value(k)
+	p, err = bucket.Get(k)
 	if err == nil || p != nil {
 		t.Error("Error deleting data")
 	}
@@ -109,7 +109,7 @@ func TestMaceFlush(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	bucket.Flush()
 
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err == nil || p != nil {
 		t.Error("Error expiring data")
 	}
@@ -123,7 +123,7 @@ func TestMaceFlushNoTimout(t *testing.T) {
 	bucket.Set(k, v, 10*time.Second)
 	bucket.Flush()
 
-	p, err := bucket.Value(k)
+	p, err := bucket.Get(k)
 	if err == nil || p != nil {
 		t.Error("Error expiring data")
 	}
@@ -141,7 +141,7 @@ func TestMaceCount(t *testing.T) {
 	}
 	for i := 0; i < count; i++ {
 		key := k + strconv.Itoa(i)
-		p, err := bucket.Value(key)
+		p, err := bucket.Get(key)
 		if err != nil || p == nil || p.Data().(string) != v {
 			t.Error("Error retrieving data")
 		}
@@ -163,7 +163,7 @@ func TestMaceDataLoader(t *testing.T) {
 		return item
 	})
 
-	p, err := bucket.Value("nil")
+	p, err := bucket.Get("nil")
 	if err == nil || bucket.Exists("nil") {
 		t.Error("Error validating data loader for nil values")
 	}
@@ -171,7 +171,7 @@ func TestMaceDataLoader(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		key := k + strconv.Itoa(i)
 		vp := key
-		p, err = bucket.Value(key)
+		p, err = bucket.Get(key)
 		if err != nil || p == nil || p.Data().(string) != vp {
 			t.Error("Error validating data loader")
 		}

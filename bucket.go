@@ -20,6 +20,10 @@ type MaceBucket struct {
 	onDeleteItem func(*MaceItem)
 }
 
+func (bucket *MaceBucket) Name() string {
+	return bucket.name
+}
+
 func (bucket *MaceBucket) Count() int {
 	bucket.RLock()
 	r := len(bucket.items)
@@ -124,7 +128,6 @@ func (bucket *MaceBucket) delete(key string) (*MaceItem, error) {
 
 func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	bucket.Lock()
-
 	v, ok := bucket.items[key]
 	if !ok {
 		bucket.Unlock()
@@ -182,9 +185,9 @@ func (bucket *MaceBucket) Set(key string, data interface{},
 
 func (bucket *MaceBucket) Exists(key string) bool {
 	bucket.RLock()
-	_, ok := bucket.items[key]
+	v, ok := bucket.items[key]
 	bucket.RUnlock()
-	return ok
+	return ok && v != nil
 }
 
 func (bucket *MaceBucket) KeepAlive(key string) error {
@@ -203,7 +206,7 @@ func (bucket *MaceBucket) KeepAlive(key string) error {
 	return ErrKeyNotFound
 }
 
-func (bucket *MaceBucket) Value(key string) (*MaceItem, error) {
+func (bucket *MaceBucket) Get(key string) (*MaceItem, error) {
 	bucket.RLock()
 	v, ok := bucket.items[key]
 	loadItems := bucket.loadItems
