@@ -1,5 +1,5 @@
 # [Mace](https://github.com/djinn/mace)
-## Fast caching data objects fast within [golang](https://github.com/golang/go)application 
+## Fast caching data objects fast within [golang](https://github.com/golang/go) application 
 
 [![GoDoc](https://godoc.org/github.com/djinn/mace?status.svg)](https://godoc.org/github.com/djinn/mace)
 
