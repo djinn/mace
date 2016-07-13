@@ -69,17 +69,17 @@ func (bucket *MaceBucket) leakCheck() {
 	cur := time.Now()
 	l := bucket.leakqueue
 	for {
-		if l.Len() > 0 {
-			if it := heap.Pop(l); cur.Sub(it.(*disposeItem).disposeTime) >= 0 {
-				invalidL = append(invalidL, it.(*disposeItem))
-			} else {
-				heap.Push(l, (it.(*disposeItem)))
-				break
-			}
+		if l.Len() == 0 {
 			break
 		}
+		it := l.Peek()
+		if cur.Sub(it.disposeTime) < 0 {
+			break
+		}
+		il := heap.Pop(l)
+		invalidL = append(invalidL, il.(*disposeItem))
+
 	}
-	bucket.Unlock()
 
 	// fetch current time for comparison
 	// used to create next timer callback
@@ -91,38 +91,33 @@ func (bucket *MaceBucket) leakCheck() {
 		key := itemP.value
 		bucket.delete(key)
 	}
-	bucket.Lock()
+	bucket.Unlock()
+	bucket.RLock()
 	if bucket.leakqueue.Len() > 0 {
-		itemMin := heap.Pop(bucket.leakqueue).(*disposeItem)
+		itemMin := l.Peek()
 		dur := itemMin.disposeTime
 		bucket.leakInterval = dur.Sub(cur)
 		bucket.leakTimer = time.AfterFunc(bucket.leakInterval, func() {
 			go bucket.leakCheck()
 		})
-		heap.Push(bucket.leakqueue, itemMin)
 	}
-	bucket.Unlock()
+	bucket.RUnlock()
 }
 
 func (bucket *MaceBucket) delete(key string) (*MaceItem, error) {
-	bucket.Lock()
-
+	// Needs to be called within a lock
 	v, ok := bucket.items[key]
 	if !ok {
-		bucket.Unlock()
 		return nil, ErrKeyNotFound
 	}
 	deleteCallback := bucket.onDeleteItem
-	bucket.Unlock()
 	if deleteCallback != nil {
 		// TODO: clone item before calling this routine
 		// Secondary advantage is ablility to run this as separate
 		// go routine
 		deleteCallback(v)
 	}
-	bucket.Lock()
 	delete(bucket.items, key)
-	bucket.Unlock()
 	return v, nil
 }
 
@@ -146,7 +141,6 @@ func (bucket *MaceBucket) Delete(key string) (*MaceItem, error) {
 	if v.Alive() != 0 {
 		dispose := v.dispose
 		if dispose != nil {
-			//fmt.Printf("deleting %d for index %d with %v\n", dispose.index, bucket.leakqueue.Len(), v)
 			heap.Remove(bucket.leakqueue, dispose.index)
 		}
 	}
@@ -193,7 +187,6 @@ func (bucket *MaceBucket) Exists(key string) bool {
 
 func (bucket *MaceBucket) KeepAlive(key string) error {
 	bucket.Lock()
-	defer bucket.Unlock()
 	v, ok := bucket.items[key]
 	v.KeepAlive()
 	// We care to update LeakQueue only if it has Alive duration
@@ -202,8 +195,10 @@ func (bucket *MaceBucket) KeepAlive(key string) error {
 		if v.Alive() != 0 {
 			bucket.leakqueue.update(v.dispose)
 		}
+		bucket.Unlock()
 		return nil
 	}
+	bucket.Unlock()
 	return ErrKeyNotFound
 }
 
@@ -213,15 +208,7 @@ func (bucket *MaceBucket) Get(key string) (*MaceItem, error) {
 	loadItems := bucket.loadItems
 	bucket.RUnlock()
 	if ok {
-		v.KeepAlive()
-		// We care to update LeakQueue only if it has Alive duration
-		// set
-		if v.Alive() != 0 {
-			bucket.Lock()
-			bucket.leakqueue.update(v.dispose)
-			bucket.Unlock()
-
-		}
+		bucket.KeepAlive(key)
 		return v, nil
 	}
 	if loadItems != nil {

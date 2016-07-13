@@ -91,6 +91,6 @@ func BenchmarkMaceWithExpiry(b *testing.B) {
 	//cache.SetLogger(logger)
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
-		cache.Set(key, &key, 300*time.Millisecond)
+		cache.Set(key, &key, 1*time.Millisecond)
 	}
 }
