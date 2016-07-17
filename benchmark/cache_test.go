@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/djinn/mace"
-	"github.com/rif/cache2go"
+	"github.com/muesli/cache2go"
 	"gopkg.in/redis.v3"
 )
 
@@ -64,7 +64,7 @@ func BenchmarkCache2Go(b *testing.B) {
 	cache := cache2go.Cache("bench")
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
-		cache.Cache(key, 0*time.Second, &key)
+		cache.Add(key, 0*time.Second, &key)
 		cache.Delete(key)
 	}
 }
@@ -73,7 +73,7 @@ func BenchmarkCache2GoWithExpiry(b *testing.B) {
 	cache := cache2go.Cache("benchExpiry")
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("k%d", i)
-		cache.Cache(key, 300*time.Second, &key)
+		cache.Add(key, 300*time.Second, &key)
 	}
 }
 
@@ -94,3 +94,8 @@ func BenchmarkMaceWithExpiry(b *testing.B) {
 		cache.Set(key, &key, 300*time.Millisecond)
 	}
 }
+
+func BenchmarkStringAlloc( b *testing.B) {
+	
+}
+
