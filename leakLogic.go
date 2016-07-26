@@ -26,7 +26,6 @@ func (lq leakQueue) Less(i, j int) bool {
 }
 
 func (lq leakQueue) Swap(i, j int) {
-	//fmt.Printf("%d %d\n", i, j)
 	lq[i], lq[j] = lq[j], lq[i]
 	lq[i].index = i
 	lq[j].index = j
@@ -57,12 +56,7 @@ func (lq *leakQueue) Pop() interface{} {
 	return item
 }
 
-func (lq *leakQueue) Peek() *disposeItem {
-	old := *lq
-	n := len(old)
-	item := old[n-1]
-	return item
-}
+
 func (lq *leakQueue) update(item *disposeItem) {
 	heap.Fix(lq, item.index)
 }

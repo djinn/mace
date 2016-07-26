@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 	"time"
+
 )
 
 type MaceBucket struct {
@@ -72,13 +73,14 @@ func (bucket *MaceBucket) leakCheck() {
 		if l.Len() == 0 {
 			break
 		}
-		it := l.Peek()
-		if cur.Sub(it.disposeTime) < 0 {
+		it := heap.Pop(l)
+		if cur.Sub(it.(*disposeItem).disposeTime) <= 0 {
+			heap.Push(l, it.(*disposeItem))
 			break
 		}
-		il := heap.Pop(l)
-		invalidL = append(invalidL, il.(*disposeItem))
 
+		invalidL = append(invalidL, it.(*disposeItem))
+		
 	}
 
 	// fetch current time for comparison
@@ -91,12 +93,14 @@ func (bucket *MaceBucket) leakCheck() {
 		key := itemP.value
 		bucket.delete(key)
 	}
+	bucket.leakInterval = 0 * time.Millisecond
 	bucket.Unlock()
 	bucket.RLock()
 	if bucket.leakqueue.Len() > 0 {
-		itemMin := l.Peek()
-		dur := itemMin.disposeTime
+		itemMin := heap.Pop(l)
+		dur := itemMin.(*disposeItem).disposeTime
 		bucket.leakInterval = dur.Sub(cur)
+		heap.Push(l, itemMin.(*disposeItem))
 		bucket.leakTimer = time.AfterFunc(bucket.leakInterval, func() {
 			go bucket.leakCheck()
 		})
