@@ -52,11 +52,11 @@ func TestMaceSetNonExpiring(t *testing.T) {
 }
 
 func TestMaceSetKeepAlive(t *testing.T) {
-	k2 := k + k
+	k2 := "v2"
 	v2 := v + v
 	bucket := Mace("testMaceKeepAlive")
 	bucket.Set(k, v, 250*time.Millisecond)
-	bucket.Set(k2, v2, 750*time.Millisecond)
+	bucket.Set(k2, v2, 1800*time.Millisecond)
 
 	p, err := bucket.Get(k)
 	if err != nil || p == nil || p.Data().(string) != v {
@@ -64,6 +64,7 @@ func TestMaceSetKeepAlive(t *testing.T) {
 	}
 	time.Sleep(50 * time.Millisecond)
 	bucket.KeepAlive(k)
+	// 750 here
 
 	time.Sleep(450 * time.Millisecond)
 	p, err = bucket.Get(k)
@@ -74,7 +75,7 @@ func TestMaceSetKeepAlive(t *testing.T) {
 	if err != nil || p == nil || p.Data().(string) != v2 {
 		t.Error("Error retrieving data from cache", err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	p, err = bucket.Get(k2)
 	if err == nil || p != nil {
 		t.Error("Error expiring data")
@@ -235,5 +236,26 @@ func TestHeapQueue(t *testing.T) {
 		if korder[j] != item.value {
 			t.Errorf("The heap order is incorrect for key %s %s", item.value, korder[j])
 		}
+	}
+}
+
+
+func TestMaceTimeoutFix(t *testing.T) {
+	bucket := Mace("testMaceDelete")
+	bucket.Set(k, v, 10*time.Millisecond)
+	p, err := bucket.Get(k)
+	if err != nil || p == nil || p.Data().(string) != v {
+		t.Error("Error retrieving data from Set", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	p, err = bucket.Get(k)
+	if err == nil {
+		t.Error("Error time out not happening")
+	}
+	bucket.Set(k, v, 10*time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
+	p, err = bucket.Get(k)
+	if err == nil {
+		t.Error("Error time out not happening")
 	}
 }
