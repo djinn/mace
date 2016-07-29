@@ -5,7 +5,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
 )
 
 type MaceBucket struct {
@@ -19,6 +18,7 @@ type MaceBucket struct {
 	loadItems    func(string) *MaceItem
 	onAddItem    func(*MaceItem)
 	onDeleteItem func(*MaceItem)
+	accessMax    int
 }
 
 func (bucket *MaceBucket) Name() string {
@@ -80,7 +80,7 @@ func (bucket *MaceBucket) leakCheck() {
 		}
 
 		invalidL = append(invalidL, it.(*disposeItem))
-		
+
 	}
 
 	// fetch current time for comparison
@@ -213,6 +213,9 @@ func (bucket *MaceBucket) Get(key string) (*MaceItem, error) {
 	bucket.RUnlock()
 	if ok {
 		bucket.KeepAlive(key)
+		if bucket.accessMax != 0 && v.AccessCount() >= bucket.accessMax {
+			bucket.Delete(key)
+		}
 		return v, nil
 	}
 	if loadItems != nil {

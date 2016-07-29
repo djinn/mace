@@ -15,7 +15,7 @@ var (
 	mutex sync.RWMutex
 )
 
-func Mace(bucket_name string) *MaceBucket {
+func MaceAccessMax(bucket_name string, accessMax int) *MaceBucket {
 	mutex.RLock()
 	b, ok := mace[bucket_name]
 	mutex.RUnlock()
@@ -26,10 +26,16 @@ func Mace(bucket_name string) *MaceBucket {
 			name:      bucket_name,
 			items:     make(map[string]*MaceItem),
 			leakqueue: &l,
+			accessMax: accessMax,
 		}
 		mutex.Lock()
 		mace[bucket_name] = b
 		mutex.Unlock()
 	}
 	return b
+
+}
+
+func Mace(bucket_name string) *MaceBucket {
+	return MaceAccessMax(bucket_name, 0)
 }
