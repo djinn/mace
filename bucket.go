@@ -82,7 +82,7 @@ func (bucket *MaceBucket) leakCheck() {
 		invalidL = append(invalidL, it.(*disposeItem))
 
 	}
-
+	bucket.Unlock()
 	// fetch current time for comparison
 	// used to create next timer callback
 
@@ -94,7 +94,7 @@ func (bucket *MaceBucket) leakCheck() {
 		bucket.delete(key)
 	}
 	bucket.leakInterval = 0 * time.Millisecond
-	bucket.Unlock()
+
 	bucket.RLock()
 	if bucket.leakqueue.Len() > 0 {
 		itemMin := heap.Pop(l)
@@ -109,19 +109,22 @@ func (bucket *MaceBucket) leakCheck() {
 }
 
 func (bucket *MaceBucket) delete(key string) (*MaceItem, error) {
-	// Needs to be called within a lock
+	bucket.Lock()
 	v, ok := bucket.items[key]
 	if !ok {
 		return nil, ErrKeyNotFound
 	}
+	v_shadow := NewMaceItem(key, v.data, 0*time.Millisecond)
+	delete(bucket.items, key)
 	deleteCallback := bucket.onDeleteItem
+	bucket.Unlock()
+
 	if deleteCallback != nil {
 		// TODO: clone item before calling this routine
 		// Secondary advantage is ablility to run this as separate
 		// go routine
-		deleteCallback(v)
+		deleteCallback(v_shadow)
 	}
-	delete(bucket.items, key)
 	return v, nil
 }
 

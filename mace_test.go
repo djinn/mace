@@ -239,7 +239,6 @@ func TestHeapQueue(t *testing.T) {
 	}
 }
 
-
 func TestMaceTimeoutFix(t *testing.T) {
 	bucket := Mace("testMaceDelete")
 	bucket.Set(k, v, 10*time.Millisecond)
